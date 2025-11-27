@@ -18,5 +18,6 @@
     state: present
     update_cache: true
 - name: Login to Netbird
-  shell: netbird up -m {{ netbird_mgmt_url }} --setup-key {{ netbird_setup_key }}
-  when: netbird_skip_login == False
+  ansible.builtin.command: netbird up -m {{ netbird_mgmt_url }} --setup-key {{ netbird_setup_key }}
+  when: not netbird_skip_login
+  changed_when: false

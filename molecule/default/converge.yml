@@ -4,11 +4,11 @@
   gather_facts: false
   become: true
   vars:
-    netbird_skip_login: True
+    netbird_skip_login: true
   roles:
     - role: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
   tasks:
     - name: Verify that Netbird is installed
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: netbird version
-      changed_when: False
+      changed_when: false
