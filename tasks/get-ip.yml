@@ -1,0 +1,20 @@
+---
+- name: Wait for Netbird to get an IP address
+  ansible.builtin.command: netbird status --ipv4
+  register: netbird_ip_result
+  until: (netbird_ip_result.stdout | regex_search('\\d+\\.\\d+\\.\\d+\\.\\d+')) is truthy
+  retries: "{{ netbird_ip_retries }}"
+  delay: "{{ netbird_ip_delay }}"
+  changed_when: false
+
+- name: Extract Netbird IP address
+  ansible.builtin.set_fact:
+    netbird_ip: "{{ netbird_ip_result.stdout | trim }}"
+  when:
+    - netbird_ip_result.stdout is defined
+    - (netbird_ip_result.stdout | regex_search('\\d+\\.\\d+\\.\\d+\\.\\d+')) is truthy
+
+- name: Display Netbird IP address
+  ansible.builtin.debug:
+    msg: "Host '{{ ansible_hostname }}' Netbird IP: {{ netbird_ip }}"
+  when: netbird_ip is defined

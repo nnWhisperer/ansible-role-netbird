@@ -1,14 +1,23 @@
 ---
 - name: Converge
   hosts: all
-  gather_facts: false
+  gather_facts: true
   become: true
-  vars:
-    netbird_skip_login: true
-  roles:
-    - role: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
   tasks:
-    - name: Verify that Netbird is installed
-      ansible.builtin.command:
-        cmd: netbird version
+    - name: Include netbird role
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}"
+
+  post_tasks:
+    - name: Display Netbird status
+      ansible.builtin.command: netbird status
       changed_when: false
+      register: netbird_status
+
+    - name: Show Netbird status
+      ansible.builtin.debug:
+        var: netbird_status.stdout_lines
+
+    - name: Display Netbird IP
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} Netbird IP: {{ netbird_ip | default('not assigned') }}"

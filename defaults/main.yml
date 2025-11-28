@@ -1,5 +1,17 @@
 ---
-# defaults file for .
-netbird_mgmt_url: https://app.netbird.io:443/
+# defaults file for netbird role
+netbird_mgmt_url: https://api.netbird.io:443/
 netbird_setup_key: ""
 netbird_skip_login: false
+
+# Set to "latest" to use APT repository, or specific version like "0.55.0" to pin
+netbird_version: "latest"
+
+# Login retry settings
+netbird_login_retries: 3
+netbird_login_delay: 10
+
+# IP retrieval settings
+netbird_wait_for_ip: true
+netbird_ip_retries: 30
+netbird_ip_delay: 5

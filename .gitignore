@@ -1,1 +1,5 @@
 .vscode
+.env
+*.retry
+e2e-tests/.vagrant/
+e2e-tests/roles/

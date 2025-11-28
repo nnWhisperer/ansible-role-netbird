@@ -1,0 +1,96 @@
+---
+- name: Verify Netbird connectivity
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Get Netbird IP
+      ansible.builtin.command: netbird status --ipv4
+      changed_when: false
+      register: netbird_ip_result
+
+    - name: Extract Netbird IP
+      ansible.builtin.set_fact:
+        netbird_ip: "{{ netbird_ip_result.stdout | trim }}"
+      when: (netbird_ip_result.stdout | regex_search('\\d+\\.\\d+\\.\\d+\\.\\d+')) is truthy
+
+    - name: Display Netbird IP for this host
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ netbird_ip }}"
+
+- name: Test connectivity from VM2 to VM1
+  hosts: netbird-vm2
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Get VM1 Netbird IP
+      ansible.builtin.set_fact:
+        vm1_netbird_ip: "{{ hostvars['netbird-vm1']['netbird_ip'] }}"
+
+    - name: Display target IP
+      ansible.builtin.debug:
+        msg: "Testing connectivity to VM1 at {{ vm1_netbird_ip }}"
+
+    - name: Show peer status on VM2
+      ansible.builtin.command: netbird status
+      changed_when: false
+      register: vm2_peer_status
+
+    - name: Display VM2 peer status
+      ansible.builtin.debug:
+        var: vm2_peer_status.stdout_lines
+
+    - name: Show peer status on VM1
+      ansible.builtin.command: netbird status
+      changed_when: false
+      register: vm1_peer_status
+      delegate_to: netbird-vm1
+
+    - name: Display VM1 peer status
+      ansible.builtin.debug:
+        var: vm1_peer_status.stdout_lines
+
+    - name: Test ICMP ping to VM1 via Netbird network
+      ansible.builtin.command: ping -c 3 -W 5 {{ vm1_netbird_ip }}
+      register: ping_result
+      until: ping_result.rc == 0
+      retries: 10
+      delay: 5
+      changed_when: false
+
+    - name: Display ping result
+      ansible.builtin.debug:
+        var: ping_result.stdout_lines
+
+    - name: Start HTTP server on VM1
+      ansible.builtin.shell: |
+        nohup python3 -m http.server 8080 --bind {{ hostvars['netbird-vm1']['netbird_ip'] }} > /tmp/http_server.log 2>&1 &
+        sleep 2
+        echo "Server PID: $(pgrep -f 'python3 -m http.server 8080')"
+      delegate_to: netbird-vm1
+      register: http_server_start
+
+    - name: Show HTTP server start result
+      ansible.builtin.debug:
+        var: http_server_start.stdout_lines
+
+    - name: Test HTTP connectivity via Netbird network
+      ansible.builtin.uri:
+        url: "http://{{ vm1_netbird_ip }}:8080/"
+        method: GET
+        status_code: [200]
+        timeout: 10
+      register: http_result
+      until: http_result is success
+      retries: 5
+      delay: 5
+
+    - name: Connectivity test passed
+      ansible.builtin.debug:
+        msg: "SUCCESS: VM2 can reach VM1 ({{ vm1_netbird_ip }}) via Netbird mesh network"
+
+    - name: Stop HTTP server on VM1
+      ansible.builtin.shell: pkill -f "python3 -m http.server 8080" || true
+      delegate_to: netbird-vm1
+      changed_when: false
+      failed_when: false

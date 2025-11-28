@@ -3,7 +3,27 @@
   ansible.builtin.apt:
     name: python3-debian
     state: present
-- name: Setup APT Repo
+
+# Install from APT repo if version is "latest"
+- name: Ensure keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  when: netbird_version == "latest"
+
+- name: Download Netbird APT key (with retries)
+  ansible.builtin.get_url:
+    url: https://pkgs.netbird.io/debian/public.key
+    dest: /etc/apt/keyrings/netbird.asc
+    mode: '0644'
+  register: apt_key_download
+  until: apt_key_download is success
+  retries: 5
+  delay: 5
+  when: netbird_version == "latest"
+
+- name: Setup APT Repo (for latest version)
   ansible.builtin.deb822_repository:
     name: netbird
     state: present
@@ -11,13 +31,41 @@
     uris: https://pkgs.netbird.io/debian
     suites: stable
     components: main
-    signed_by: https://pkgs.netbird.io/debian/public.key
-- name: Install Netbird
+    signed_by: /etc/apt/keyrings/netbird.asc
+  when: netbird_version == "latest"
+
+- name: Install Netbird from APT (latest version)
   ansible.builtin.apt:
     name: netbird
     state: present
     update_cache: true
+  when: netbird_version == "latest"
+
+# Install specific version from GitHub releases
+- name: Download Netbird .deb package (pinned version)
+  ansible.builtin.get_url:
+    url: "https://github.com/netbirdio/netbird/releases/download/v{{ netbird_version }}/netbird_{{ netbird_version }}_linux_amd64.deb"
+    dest: "/tmp/netbird_{{ netbird_version }}_linux_amd64.deb"
+    mode: "0644"
+  when: netbird_version != "latest"
+
+- name: Install Netbird from .deb (pinned version)
+  ansible.builtin.apt:
+    deb: "/tmp/netbird_{{ netbird_version }}_linux_amd64.deb"
+    state: present
+  when: netbird_version != "latest"
+
 - name: Login to Netbird
   ansible.builtin.command: netbird up -m {{ netbird_mgmt_url }} --setup-key {{ netbird_setup_key }}
+  register: netbird_login_result
+  until: netbird_login_result.rc == 0
+  retries: "{{ netbird_login_retries }}"
+  delay: "{{ netbird_login_delay }}"
   when: not netbird_skip_login
   changed_when: false
+
+- name: Get Netbird IP address
+  ansible.builtin.include_tasks: get-ip.yml
+  when:
+    - not netbird_skip_login
+    - netbird_wait_for_ip | bool

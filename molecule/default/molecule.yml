@@ -1,8 +1,57 @@
 ---
+dependency:
+  name: galaxy
+
 driver:
   name: vagrant
+  parallel: true
   provider:
     name: libvirt
+    # Remote libvirt connection via environment variables
+    # Set LIBVIRT_HOST, LIBVIRT_USER, LIBVIRT_SSH_KEY to enable remote connection
+
 platforms:
-  - name: debian12
-    box: debian/bookworm64
+  - name: netbird-vm1
+    box: generic/ubuntu2204
+    memory: 1024
+    cpus: 1
+    provider_options:
+      video_type: "vga"
+      video_vram: 16384
+    provider_raw_config_args:
+      - "connect_via_ssh = true"
+      - "host = 'for-vagrant'"
+      - "username = 'ubuntu'"
+      - 'id_ssh_key_file = "/home/codespace/.ssh/vagrant_remote"'
+  - name: netbird-vm2
+    box: generic/ubuntu2204
+    memory: 1024
+    cpus: 1
+    provider_options:
+      video_type: "vga"
+      video_vram: 16384
+    provider_raw_config_args:
+      - "connect_via_ssh = true"
+      - "host = 'for-vagrant'"
+      - "username = 'ubuntu'"
+      - 'id_ssh_key_file = "/home/codespace/.ssh/vagrant_remote"'
+
+provisioner:
+  name: ansible
+  env:
+    NETBIRD_SETUP_KEY: ${NETBIRD_SETUP_KEY}
+  config_options:
+    defaults:
+      callbacks_enabled: profile_tasks
+  connection_options:
+    ansible_ssh_common_args: "-o ProxyCommand='ssh for-vagrant -l ubuntu -i /home/codespace/.ssh/vagrant_remote -W %h:%p' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  inventory:
+    group_vars:
+      all:
+        netbird_mgmt_url: "https://api.netbird.io:443/"
+        netbird_version: "latest"
+  options:
+    extra-vars: "netbird_setup_key=${NETBIRD_SETUP_KEY}"
+
+verifier:
+  name: ansible
