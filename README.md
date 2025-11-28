@@ -1,4 +1,4 @@
-crimsonfez.netbird
+nnWhisperer.netbird
 =========
 
 Install Netbird and login with a setup key.
@@ -14,7 +14,7 @@ Role Variables
 
 | Name               | Description                               | Default Value               |
 | -------------------- | ------------------------------------------- | :---------------------------- |
-| netbird_mgmt_url   | Management Server                         | https://app.netbird.io:443/ |
+| netbird_mgmt_url   | Management Server                         | <https://api.netbird.io:443/> |
 | netbird_setup_key  | Setup Key used when registering the agent | ""                          |
 | netbird_skip_login | Skip Login step, useful for testing       | False                       |
 
@@ -31,7 +31,7 @@ Including an example of how to use your role (for instance, with variables passe
 ```yaml
 - hosts: servers
   roles:
-  - crimsonfez.netbird
+  - nnWhisperer.netbird
   vars:
     netbird_mgmt_url: https://netbird.example.com
     netbird_setup_key: "1234567890"
