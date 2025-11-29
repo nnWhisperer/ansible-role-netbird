@@ -12,6 +12,12 @@
     mode: '0755'
   when: netbird_version == "latest"
 
+- name: Check if Netbird APT key exists
+  ansible.builtin.stat:
+    path: /etc/apt/keyrings/netbird.asc
+  register: netbird_apt_key_stat
+  when: netbird_version == "latest"
+
 - name: Download Netbird APT key (with retries)
   ansible.builtin.get_url:
     url: https://pkgs.netbird.io/debian/public.key
@@ -21,7 +27,7 @@
   until: apt_key_download is success
   retries: 5
   delay: 5
-  when: netbird_version == "latest"
+  when: netbird_version == "latest" and not netbird_apt_key_stat.stat.exists
 
 - name: Setup APT Repo (for latest version)
   ansible.builtin.deb822_repository:
@@ -42,18 +48,31 @@
   when: netbird_version == "latest"
 
 # Install specific version from GitHub releases
+- name: Check if Netbird .deb package exists
+  ansible.builtin.stat:
+    path: "/tmp/netbird_{{ netbird_version }}_linux_amd64.deb"
+  register: netbird_deb_stat
+  when: netbird_version != "latest"
+
 - name: Download Netbird .deb package (pinned version)
   ansible.builtin.get_url:
     url: "https://github.com/netbirdio/netbird/releases/download/v{{ netbird_version }}/netbird_{{ netbird_version }}_linux_amd64.deb"
     dest: "/tmp/netbird_{{ netbird_version }}_linux_amd64.deb"
     mode: "0644"
+  when: netbird_version != "latest" and not netbird_deb_stat.stat.exists
+
+- name: Check if Netbird is already installed
+  ansible.builtin.command: dpkg -s netbird
+  register: netbird_installed_check
+  changed_when: false
+  failed_when: false
   when: netbird_version != "latest"
 
 - name: Install Netbird from .deb (pinned version)
   ansible.builtin.apt:
     deb: "/tmp/netbird_{{ netbird_version }}_linux_amd64.deb"
     state: present
-  when: netbird_version != "latest"
+  when: netbird_version != "latest" and netbird_installed_check.rc != 0
 
 - name: Login to Netbird
   ansible.builtin.command: netbird up -m {{ netbird_mgmt_url }} --setup-key {{ netbird_setup_key }}
